@@ -25,7 +25,7 @@ public:
         double p_accept = exp(-beta*(new_energy-old_energy));
         bool accept = (rand() / (double)RAND_MAX) < std::min(p_accept, 1.);
         if (accept) {
-            p->pos += candidate;
+            p->pos = crystalp->space.clip(p->pos + candidate);
         }
         return accept;
     }
@@ -41,7 +41,6 @@ public:
     }
 
     void train(double pacc_goal=0.3, double r_from=0.0001, double r_to=3, int width=50, int height=3, int nsweeps=5) {
-        beta /= 20;
         double r_best = r_from;
         double pacc_dist_best = 1;
         for (int j = 0; j < height; j++) {

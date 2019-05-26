@@ -93,11 +93,11 @@ public:
     }
 
     void write(std::ostream & out) const {
-        PRINT_VAR(particles.size());
         out << particles.size() << "\n";
         auto p1 = space.p1();
         auto p2 = space.p2();
         auto p3 = space.p3();
+        out << "0 0 0" << "\n";
         out << p1.x << " " << p1.y << " " << p1.z << "\n";
         out << p2.x << " " << p2.y << " " << p2.z << "\n";
         out << p3.x << " " << p3.y << " " << p3.z << "\n";
@@ -133,17 +133,19 @@ particle * lattice_cell::interstitial(vec3 offset) {
 }
 
 double particle::energy(vec3 shift) {
-    double energy;
+    assert(cell->contains(pos));
+    double energy = 0;
     if (owner->wigner_seitz_constraint) {
         for (const lattice_cell * nn : cell->nearest_neighbours) {
-            vec3 image = pos + shift;
+            vec3 image = owner->space.clip(pos + shift);
             for (const particle * p : nn->particles) {
+                assert(p != this);
                 double dist = owner->space.distance(image, p->pos);
                 energy += owner->potential(dist);
             }
         }
         if (cell->particles.size() > 1) {
-            vec3 image = pos + shift;
+            vec3 image = owner->space.clip(pos + shift);
             for (const particle * p : cell->particles) {
                 if (p == this) continue;
                 double dist = owner->space.distance(image, p->pos);
@@ -151,7 +153,7 @@ double particle::energy(vec3 shift) {
             }
         }
     } else {
-        vec3 image = pos + shift;
+        vec3 image = owner->space.clip(pos + shift);
         for (const particle * p : owner->particles) {
             if (p == this) continue;
             double dist = owner->space.distance(image, p->pos);
@@ -164,7 +166,7 @@ double particle::energy(vec3 shift) {
 bool lattice_cell::contains(const vec3 & pos) const {
     /* wigner seitz constraint */
     if (!owner->wigner_seitz_constraint) return true;
-    auto d1 = (center - pos).length();
+    auto d1 = owner->space.distance(center, pos);
     for (const lattice_cell * nn : nearest_neighbours) {
         auto d2 = owner->space.distance(nn->center, pos);
         if (d2 < d1) {
