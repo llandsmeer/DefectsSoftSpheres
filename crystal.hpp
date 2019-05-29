@@ -21,9 +21,9 @@ public:
     double potential_sigma;
     double potential_epsilon;
 
-    double wigner_seitz_constraint = false;
+    double wigner_seitz_constraint = true;
 
-    double potential(double dist) {
+    double potential(double dist) const {
         return dist >= potential_sigma ? 0 :
             potential_epsilon*pow(1.-dist/potential_sigma, 5./2);
     }
@@ -71,6 +71,58 @@ public:
         return ret;
     }
 
+    double two_particle_energy(const particle * p1, const particle * p2,
+            vec3 sh1=vec3(), vec3 sh2=vec3()) const {
+        assert(p1 != p2);
+        double energy = 0;
+        if (wigner_seitz_constraint) {
+            vec3 image = space.clip(p1->pos + sh1);
+            for (const lattice_cell * nn : p1->cell->nearest_neighbours) {
+                for (const particle * p : nn->particles) {
+                    assert(p != p1);
+                    double dist = space.distance(image, p->pos);
+                    energy += potential(dist);
+                }
+            }
+            if (p1->cell->particles.size() > 1) {
+                for (const particle * p : p1->cell->particles) {
+                    if (p1 == p) continue;
+                    double dist = space.distance(image, p1->pos);
+                    energy += potential(dist);
+                }
+            }
+            image = space.clip(p2->pos + sh2);
+            for (const lattice_cell * nn : p2->cell->nearest_neighbours) {
+                for (const particle * p : nn->particles) {
+                    assert(p != p2);
+                    double dist = space.distance(image, p->pos);
+                    energy += potential(dist);
+                }
+            }
+            if (p2->cell->particles.size() > 1) {
+                for (const particle * p : p2->cell->particles) {
+                    if (p2 == p) continue;
+                    double dist = space.distance(image, p2->pos);
+                    energy += potential(dist);
+                }
+            }
+        } else {
+            vec3 image1 = space.clip(p1->pos + sh1);
+            vec3 image2 = space.clip(p2->pos + sh2);
+            for (const particle * p : particles) {
+                if (p != p1) {
+                    double dist1 = space.distance(image1, p->pos);
+                    energy += potential(dist1);
+                }
+                if (p != p2) {
+                    double dist2 = space.distance(image2, p->pos);
+                    energy += potential(dist2);
+                }
+            }
+        }
+        return energy;
+    }
+
     /* boring functions */
 
     lattice_cell * get_cell(int n1, int n2, int n3, int n4) {
@@ -101,14 +153,12 @@ public:
         out << p1.x << " " << p1.y << " " << p1.z << "\n";
         out << p2.x << " " << p2.y << " " << p2.z << "\n";
         out << p3.x << " " << p3.y << " " << p3.z << "\n";
-        for (particle * p: particles) {
-            int size = 1;
-            int color = 1;
+        for (const particle * p: particles) {
             out << p->pos.x << " "
                 << p->pos.y << " "
                 << p->pos.z << " "
-                << size << " "
-                << color << " "
+                << p->size << " "
+                << p->color << " "
                 << "\n"; 
         }
         out << std::flush;

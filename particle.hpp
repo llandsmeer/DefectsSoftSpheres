@@ -11,7 +11,8 @@ public:
     vec3 pos;
     lattice_cell * cell;
     crystal * owner;
-
+    int color = 1;
+    int size = 1;
     double energy(vec3 shift=vec3(0, 0, 0));
 };
 

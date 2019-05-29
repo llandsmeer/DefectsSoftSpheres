@@ -1,6 +1,8 @@
 // RUN set -ex
-// RUN g++ main.cpp -g
-// RUN ./a.out
+// RUN g++ main.cpp -g -O3
+// RUN rm -fr sim
+// RUN mkdir sim
+// RUN time ./a.out
 // RUN sh -c 'opengl-mol sim/*'
 
 #include <iomanip>
@@ -30,13 +32,18 @@ std::string seqfn(int i){
 
 int main() {
     srand(0);
-    configure(0.001, 2.5);
+    configure(0.003, 2.5);
+    crystal->wigner_seitz_constraint = false;
     monte_carlo.train();
     lattice_cell * mid = crystal->get_cell(2, 2, 2, 0);
     particle * in = mid->interstitial(vec3(0.3, 0.3, 0.3));
+    if (crystal->wigner_seitz_constraint) {
+        mid->particles[0]->color = 2;
+        in->color = 2;
+    }
     monte_carlo.train();
     for (int i = 0; i < 100; i++) {
-        monte_carlo.sweep(10);
+        monte_carlo.sweep_sym(100);
         crystal->write(seqfn(i));
     }
     PRINT_VAR(crystal->potential_epsilon);
