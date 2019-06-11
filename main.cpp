@@ -7,8 +7,9 @@
 
 #define NDEBUG // for a 2x speed up, disables all assert() macros
 
-#define BCC_INT
-//#define HEXAGONAL_VAC
+// one of these 2 options
+// #define BCC_INT
+#define HEXAGONAL_VAC
 
 #include <iomanip>
 
@@ -59,7 +60,7 @@ int main() {
     mid->vacancy();
 #endif
     monte_carlo.train();
-    for (int i = 0; i < 300; i++) {
+    for (int i = 0; i < 30; i++) {
         monte_carlo.sweep_sym(100);
         crystal->write(seqfn(i));
         crystal->log(i, log_stream);
