@@ -8,8 +8,8 @@
 #define NDEBUG // for a 2x speed up, disables all assert() macros
 
 // one of these 2 options
-// #define BCC_INT
-#define HEXAGONAL_VAC
+#define BCC_INT
+// #define HEXAGONAL_VAC
 
 #include <iomanip>
 
@@ -18,9 +18,10 @@
 #include "crystal.hpp"
 #include "monte_carlo.hpp"
 #include "axis_offsets.hpp"
+#include "bcc_offsets.hpp"
 
 #ifdef BCC_INT
-crystal * crystal = crystal::bcc(4, 4, 4);
+crystal * crystal = crystal::bcc(7, 7, 7);
 #endif
 
 #ifdef HEXAGONAL_VAC
@@ -44,22 +45,27 @@ std::string seqfn(int i) {
 }
 
 int main() {
+#ifdef NDEBUG
+    std::cout << "WARNING NDEBUG IS DEFINED\n";
+#endif
     srand(0);
     crystal->wigner_seitz_constraint = true;
 #ifdef BCC_INT
     configure(0.002, 2.5);
-    lattice_cell * mid = crystal->get_cell(2, 2, 2, 0);
+    std::ofstream log_stream("sim/bcc_offsets");
+    lattice_cell * mid = crystal->get_cell(4, 4, 4, 0);
     particle * in = mid->interstitial(vec3(0.3, 0.3, 0.3));
     if (crystal->wigner_seitz_constraint) {
         mid->particles[0]->color = 2;
         in->color = 2;
     }
+    bcc_offsets axis_offsets(crystal, mid);
 #endif
 #ifdef HEXAGONAL_VAC
-    configure(0.000, 4.0);
+    configure(0.001, 4.0);
     lattice_cell * mid = crystal->get_cell(3, 3, 5, 0);
     mid->vacancy();
-    std::ofstream log_stream("saved/hex_offsets0");
+    std::ofstream log_stream("sim/hex_offsets");
     for (int i = 0; i < 20; i++) {
         lattice_cell * lc = crystal->get_cell(3, 3, i, 0);
         for (particle * p : lc->particles) {
