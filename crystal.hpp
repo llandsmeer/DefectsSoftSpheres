@@ -13,6 +13,38 @@
 
 class crystal {
     crystal(periodic_space space) : space(space) { }
+    void init(int n1, int n2, int n3, double a, lattice_definition & unitcell) {
+        for (int i1 = 0; i1 < n1; i1++) {
+            for (int i2 = 0; i2 < n2; i2++) {
+                for (int i3 = 0; i3 < n3; i3++) {
+                    for (size_t i4 = 0; i4 < unitcell.basis_vectors.size(); i4++) {
+                        vec3 n(i1, i2, i3);
+                        vec3 nb = n + unitcell.basis_vectors[i4];
+                        lattice_cell * cell = new lattice_cell();
+                        particle * p = new particle();
+                        cell->n = n;
+                        cell->nb = nb;
+                        cell->owner = this;
+                        p->pos = cell->center = space.project(nb);
+                        p->cell = cell;
+                        p->owner = this;
+                        cell->basis = i4;
+                        cell->particles.push_back(p);
+                        cells.push_back(cell);
+                        particles.push_back(p);
+                    }
+                }
+            }
+        }
+        auto nncell_cutoff = a*1.1;
+        for (auto a : cells) {
+            for (const auto b : cells) {
+                double d = space.distance(a->center, b->center);
+                if (a == b || d > nncell_cutoff) continue;
+                a->nearest_neighbours.push_back(b);
+            }
+        }
+    }
 public:
     periodic_space space;
     std::vector<lattice_cell*> cells;
@@ -33,41 +65,18 @@ public:
         if (n3 == -1) n3 = n2;
         auto unitcell = lattice_definition::body_centered_cubic(a);
         crystal * ret = new crystal(periodic_space(
-            matrix3::from_cols(
-                unitcell.p1(),
-                unitcell.p2(),
-                unitcell.p3()),
-            vec3(n1, n2, n3)));
-        for (int i1 = 0; i1 < n1; i1++) {
-            for (int i2 = 0; i2 < n2; i2++) {
-                for (int i3 = 0; i3 < n3; i3++) {
-                    for (int i4 = 0; i4 < unitcell.basis_vectors.size(); i4++) {
-                        vec3 n(i1, i2, i3);
-                        vec3 nb = n + unitcell.basis_vectors[i4];
-                        lattice_cell * cell = new lattice_cell();
-                        particle * p = new particle();
-                        cell->n = n;
-                        cell->nb = nb;
-                        cell->owner = ret;
-                        p->pos = cell->center = ret->space.project(nb);
-                        p->cell = cell;
-                        p->owner = ret;
-                        cell->basis = i4;
-                        cell->particles.push_back(p);
-                        ret->cells.push_back(cell);
-                        ret->particles.push_back(p);
-                    }
-                }
-            }
-        }
-        auto nncell_cutoff = a*1.1;
-        for (auto a : ret->cells) {
-            for (const auto b : ret->cells) {
-                double d = ret->space.distance(a->center, b->center);
-                if (a == b || d > nncell_cutoff) continue;
-                a->nearest_neighbours.push_back(b);
-            }
-        }
+            matrix3::from_cols(unitcell.p1(), unitcell.p2(), unitcell.p3()), vec3(n1, n2, n3)));
+        ret->init(n1, n2, n3, a, unitcell);
+        return ret;
+    }
+
+    static crystal * hexagonal(int n1=4, int n2=-1, int n3=-1, double a=3) {
+        if (n2 == -1) n2 = n1;
+        if (n3 == -1) n3 = n2;
+        auto unitcell = lattice_definition::hexagonal(a, 0.84);
+        crystal * ret = new crystal(periodic_space(
+            matrix3::from_cols(unitcell.p1(), unitcell.p2(), unitcell.p3()), vec3(n1, n2, n3)));
+        ret->init(n1, n2, n3, a, unitcell);
         return ret;
     }
 
@@ -164,6 +173,24 @@ public:
         out << std::flush;
     }
 
+    void log(int iter, std::ostream & out) const {
+        for (const particle * p: particles) {
+            out << iter << " "
+                << p->pos.x << " "
+                << p->pos.y << " "
+                << p->pos.z << " "
+                << p->cell->center.x << " "
+                << p->cell->center.y << " "
+                << p->cell->center.z << " "
+                << p->cell->n.x << " "
+                << p->cell->n.y << " "
+                << p->cell->n.z << " "
+                << p->cell->basis << " "
+                << "\n"; 
+        }
+        out << std::flush;
+    }
+
 };
 
 // stupid c++
@@ -171,15 +198,31 @@ public:
 particle * lattice_cell::interstitial(vec3 offset) {
     assert(contains(center + offset));
     for (const particle * p : particles) {
-        contains(p->pos + offset / particles.size());
+        contains(p->pos - offset / particles.size());
+    }
+    for (particle * p : particles) {
+        p->pos = owner->space.clip(p->pos - offset / particles.size());
     }
     particle * p = new particle();
-    p->pos = center + offset;
+    p->pos = owner->space.clip(center + offset);
     p->cell = this;
     p->owner = owner;
     owner->particles.push_back(p);
     particles.push_back(p);
     return p;
+}
+
+void lattice_cell::vacancy(int basis) {
+    assert((int)particles.size() >= basis);
+    particle * p = particles[basis];
+    for (auto it = owner->particles.begin(); it != owner->particles.end();) {
+        if ((*it) == p) {
+            it = owner->particles.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    particles.erase(particles.begin() + basis);
 }
 
 double particle::energy(vec3 shift) {

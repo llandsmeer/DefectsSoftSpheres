@@ -37,6 +37,10 @@ public:
             if (p1->cell->contains(p1->pos + candidate) &&
                 p2->cell->contains(p2->pos - candidate)) break;
         }
+        /*if ((p1->cell->n == vec3(2, 2, 2) && p1->cell->basis == 0) ||
+            (p2->cell->n == vec3(2, 2, 2) && p2->cell->basis == 0)) {
+            candidate = candidate / 20;
+        }*/
         double old_energy = crystalp->two_particle_energy(p1, p2);
         double new_energy = crystalp->two_particle_energy(p1, p2, candidate, -candidate);
         double p_accept = exp(-beta*(new_energy-old_energy));
@@ -84,7 +88,7 @@ public:
             for (int i = 0; i < width; i++) {
                 double r_test = r_from + (double)i/width*(r_to-r_from);
                 r_max = r_test;
-                double pacc_dist = abs(sweep(nsweeps, true) - pacc_goal);
+                double pacc_dist = abs(sweep(nsweeps, sym) - pacc_goal);
                 if (pacc_dist < pacc_dist_best) {
                     r_best = r_test;
                     pacc_dist_best = pacc_dist;

@@ -33,6 +33,9 @@ public:
     vec3 cross(const vec3 & o) const { return vec3(y*o.z - z*o.y, z*o.x - x*o.z, x*o.y - y*o.x); }
     vec3 random() const { return (vec3(rand(), rand(), rand()) / RAND_MAX).mul(*this); }
     bool operator==(const vec3 & other) const { return x == other.x && y == other.y && z == other.z; }
+    bool close_to(const vec3 & other, double tol=1e-4) const {
+        return abs(x - other.x) < tol && abs(y - other.y) < tol && abs(z - other.z) < tol;
+    }
 };
 
 inline vec3 operator*(double a, const vec3 & self) { return self * a; }

@@ -22,6 +22,7 @@ public:
 
     bool contains(const vec3 & pos) const;
     particle * interstitial(vec3 offset);
+    void vacancy(int basis=0);
 };
 
 #endif
