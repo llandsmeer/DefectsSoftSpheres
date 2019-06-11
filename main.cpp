@@ -5,7 +5,7 @@
 // RUN time ./a.out
 // RUN # sh -c 'opengl-mol sim/opengl.*'
 
-// #define NDEBUG
+#define NDEBUG // for a 2x speed up, disables all assert() macros
 
 #define BCC_INT
 //#define HEXAGONAL_VAC
@@ -58,12 +58,10 @@ int main() {
     lattice_cell * mid = crystal->get_cell(3, 3, 5, 0);
     mid->vacancy();
 #endif
-    crystal->write(seqfn(0));
-    monte_carlo.train(true, 0.3, 1e-8, 0.4);
     monte_carlo.train();
-    for (int i = 0; i < 30; i++) {
-        monte_carlo.sweep_sym(10);
-        crystal->write(seqfn(i+1));
+    for (int i = 0; i < 300; i++) {
+        monte_carlo.sweep_sym(100);
+        crystal->write(seqfn(i));
         crystal->log(i, log_stream);
     }
     PRINT_VAR(crystal->potential_epsilon);

@@ -65,7 +65,7 @@ public:
         auto unitcell = lattice_definition::body_centered_cubic(a);
         crystal * ret = new crystal(periodic_space(
             matrix3::from_cols(unitcell.p1(), unitcell.p2(), unitcell.p3()), vec3(n1, n2, n3)));
-        ret->init(n1, n2, n3, a, unitcell, a*1.1);
+        ret->init(n1, n2, n3, a, unitcell, a*2); // 1.1
         return ret;
     }
 
@@ -89,36 +89,39 @@ public:
         bool both = wigner_seitz_constraint;
 #endif
         if (both || wigner_seitz_constraint) {
-            vec3 image = space.clip(p1->pos + sh1);
+            vec3 image1 = space.clip(p1->pos + sh1);
             for (const lattice_cell * nn : p1->cell->nearest_neighbours) {
                 for (const particle * p : nn->particles) {
                     assert(p != p1 && nn != p1->cell);
-                    double dist = space.distance(image, p->pos);
+                    if (p == p2) continue;
+                    double dist = space.distance(image1, p->pos);
                     energy_ws += potential(dist);
                 }
             }
             if (p1->cell->particles.size() > 1) {
                 for (const particle * p : p1->cell->particles) {
-                    if (p1 == p) continue;
-                    double dist = space.distance(image, p->pos);
+                    if (p1 == p || p2 == p) continue;
+                    double dist = space.distance(image1, p->pos);
                     energy_ws += potential(dist);
                 }
             }
-            image = space.clip(p2->pos + sh2);
+            vec3 image2 = space.clip(p2->pos + sh2);
             for (const lattice_cell * nn : p2->cell->nearest_neighbours) {
                 for (const particle * p : nn->particles) {
                     assert(p != p2 && nn != p2->cell);
-                    double dist = space.distance(image, p->pos);
+                    if (p == p1) continue;
+                    double dist = space.distance(image2, p->pos);
                     energy_ws += potential(dist);
                 }
             }
             if (p2->cell->particles.size() > 1) {
                 for (const particle * p : p2->cell->particles) {
-                    if (p2 == p) continue;
-                    double dist = space.distance(image, p->pos);
+                    if (p2 == p || p1 == p) continue;
+                    double dist = space.distance(image2, p->pos);
                     energy_ws += potential(dist);
                 }
             }
+            energy_ws += 2*potential(space.distance(image1, image2));
 #ifdef NDEBUG
             return energy_ws;
 #endif
