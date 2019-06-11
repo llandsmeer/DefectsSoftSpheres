@@ -13,7 +13,7 @@
 
 class crystal {
     crystal(periodic_space space) : space(space) { }
-    void init(int n1, int n2, int n3, double a, lattice_definition & unitcell) {
+    void init(int n1, int n2, int n3, double a, lattice_definition & unitcell, double nncell_cutoff) {
         for (int i1 = 0; i1 < n1; i1++) {
             for (int i2 = 0; i2 < n2; i2++) {
                 for (int i3 = 0; i3 < n3; i3++) {
@@ -36,7 +36,6 @@ class crystal {
                 }
             }
         }
-        auto nncell_cutoff = a*1.1;
         for (auto a : cells) {
             for (const auto b : cells) {
                 double d = space.distance(a->center, b->center);
@@ -66,7 +65,7 @@ public:
         auto unitcell = lattice_definition::body_centered_cubic(a);
         crystal * ret = new crystal(periodic_space(
             matrix3::from_cols(unitcell.p1(), unitcell.p2(), unitcell.p3()), vec3(n1, n2, n3)));
-        ret->init(n1, n2, n3, a, unitcell);
+        ret->init(n1, n2, n3, a, unitcell, a*1.1);
         return ret;
     }
 
@@ -76,60 +75,79 @@ public:
         auto unitcell = lattice_definition::hexagonal(a, 0.84);
         crystal * ret = new crystal(periodic_space(
             matrix3::from_cols(unitcell.p1(), unitcell.p2(), unitcell.p3()), vec3(n1, n2, n3)));
-        ret->init(n1, n2, n3, a, unitcell);
+        ret->init(n1, n2, n3, a, unitcell, a*2);
         return ret;
     }
 
     double two_particle_energy(const particle * p1, const particle * p2,
             vec3 sh1=vec3(), vec3 sh2=vec3()) const {
         assert(p1 != p2);
-        double energy = 0;
-        if (wigner_seitz_constraint) {
+        double energy_ws = 0;
+#ifdef NDEBUG
+        bool both = false;
+#else
+        bool both = wigner_seitz_constraint;
+#endif
+        if (both || wigner_seitz_constraint) {
             vec3 image = space.clip(p1->pos + sh1);
             for (const lattice_cell * nn : p1->cell->nearest_neighbours) {
                 for (const particle * p : nn->particles) {
-                    assert(p != p1);
+                    assert(p != p1 && nn != p1->cell);
                     double dist = space.distance(image, p->pos);
-                    energy += potential(dist);
+                    energy_ws += potential(dist);
                 }
             }
             if (p1->cell->particles.size() > 1) {
                 for (const particle * p : p1->cell->particles) {
                     if (p1 == p) continue;
-                    double dist = space.distance(image, p1->pos);
-                    energy += potential(dist);
+                    double dist = space.distance(image, p->pos);
+                    energy_ws += potential(dist);
                 }
             }
             image = space.clip(p2->pos + sh2);
             for (const lattice_cell * nn : p2->cell->nearest_neighbours) {
                 for (const particle * p : nn->particles) {
-                    assert(p != p2);
+                    assert(p != p2 && nn != p2->cell);
                     double dist = space.distance(image, p->pos);
-                    energy += potential(dist);
+                    energy_ws += potential(dist);
                 }
             }
             if (p2->cell->particles.size() > 1) {
                 for (const particle * p : p2->cell->particles) {
                     if (p2 == p) continue;
-                    double dist = space.distance(image, p2->pos);
-                    energy += potential(dist);
+                    double dist = space.distance(image, p->pos);
+                    energy_ws += potential(dist);
                 }
             }
-        } else {
+#ifdef NDEBUG
+            return energy_ws;
+#endif
+        }
+        double energy_all = 0;
+        if (both || !wigner_seitz_constraint) {
             vec3 image1 = space.clip(p1->pos + sh1);
             vec3 image2 = space.clip(p2->pos + sh2);
             for (const particle * p : particles) {
-                if (p != p1) {
-                    double dist1 = space.distance(image1, p->pos);
-                    energy += potential(dist1);
-                }
-                if (p != p2) {
-                    double dist2 = space.distance(image2, p->pos);
-                    energy += potential(dist2);
-                }
+                if (p == p1 || p == p2) continue;
+                double dist1 = space.distance(image1, p->pos);
+                energy_all += potential(dist1);
+                double dist2 = space.distance(image2, p->pos);
+                energy_all += potential(dist2);
             }
+            energy_all += 2*potential(space.distance(image1, image2));
+#ifdef NDEBUG
+            return energy_all;
+#endif
         }
-        return energy;
+        if (!(abs(energy_ws - energy_all) < 1e-3)) {
+            std::cout << "two_particle_energy() mismatch\n";
+            PRINT_VAR(p1->cell->nb);
+            PRINT_VAR(p2->cell->nb);
+            PRINT_VAR(energy_ws);
+            PRINT_VAR(energy_all);
+        }
+        assert(abs(energy_ws - energy_all) < 1e-3);
+        return energy_all;
     }
 
     /* boring functions */
@@ -226,15 +244,20 @@ void lattice_cell::vacancy(int basis) {
 }
 
 double particle::energy(vec3 shift) {
+#ifdef NDEBUG
+        bool both = false;
+#else
+        bool both = owner->wigner_seitz_constraint;
+#endif
     assert(cell->contains(pos));
-    double energy = 0;
-    if (owner->wigner_seitz_constraint) {
+    double energy_ws = 0;
+    if (both || owner->wigner_seitz_constraint) {
         for (const lattice_cell * nn : cell->nearest_neighbours) {
             vec3 image = owner->space.clip(pos + shift);
             for (const particle * p : nn->particles) {
                 assert(p != this);
                 double dist = owner->space.distance(image, p->pos);
-                energy += owner->potential(dist);
+                energy_ws += owner->potential(dist);
             }
         }
         if (cell->particles.size() > 1) {
@@ -242,18 +265,27 @@ double particle::energy(vec3 shift) {
             for (const particle * p : cell->particles) {
                 if (p == this) continue;
                 double dist = owner->space.distance(image, p->pos);
-                energy += owner->potential(dist);
+                energy_ws += owner->potential(dist);
             }
         }
-    } else {
+#ifdef NDEBUG
+        return energy_ws;
+#endif
+    }
+    double energy_all = 0;
+    if (both || !owner->wigner_seitz_constraint) {
         vec3 image = owner->space.clip(pos + shift);
         for (const particle * p : owner->particles) {
             if (p == this) continue;
             double dist = owner->space.distance(image, p->pos);
-            energy += owner->potential(dist);
+            energy_all += owner->potential(dist);
         }
+#ifdef NDEBUG
+        return energy_all;
+#endif
     }
-    return energy;
+    assert(energy_ws == energy_all);
+    return energy_all;
 }
 
 bool lattice_cell::contains(const vec3 & pos) const {

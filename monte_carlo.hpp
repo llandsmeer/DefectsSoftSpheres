@@ -77,8 +77,8 @@ public:
     }
 
     double sweep(int ntimes, bool sym=true) {
-        if (sym) return sweep_1p(ntimes);
-        else return sweep_sym(ntimes);
+        if (sym) return sweep_sym(ntimes);
+        else return sweep_1p(ntimes);
     }
 
     void train(bool sym=true, double pacc_goal=0.3, double r_from=0.0001, double r_to=3, int width=50, int height=3, int nsweeps=5) {
@@ -96,6 +96,7 @@ public:
             }
             double range = (r_to - r_from) / width;
             r_from = r_best - range/2;
+            if (r_from < 0) r_from = 1e-8;
             r_to = r_best + range/2;
         }
         r_max = r_best;
