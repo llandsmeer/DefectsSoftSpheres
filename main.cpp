@@ -17,13 +17,15 @@
 
 #include "crystal.hpp"
 #include "monte_carlo.hpp"
+#include "axis_offsets.hpp"
 
 #ifdef BCC_INT
 crystal * crystal = crystal::bcc(4, 4, 4);
 #endif
 
 #ifdef HEXAGONAL_VAC
-crystal * crystal = crystal::hexagonal(6, 6, 10);
+crystal * crystal = crystal::hexagonal(6, 6, 20);
+axis_offsets axis_offsets(crystal, vec3(0, 0, 1));
 #endif
 
 monte_carlo monte_carlo(crystal);
@@ -42,7 +44,6 @@ std::string seqfn(int i) {
 }
 
 int main() {
-    std::ofstream log_stream("sim/log");
     srand(0);
     crystal->wigner_seitz_constraint = true;
 #ifdef BCC_INT
@@ -55,15 +56,23 @@ int main() {
     }
 #endif
 #ifdef HEXAGONAL_VAC
-    configure(0.001, 4.0);
+    configure(0.000, 4.0);
     lattice_cell * mid = crystal->get_cell(3, 3, 5, 0);
     mid->vacancy();
+    std::ofstream log_stream("saved/hex_offsets0");
+    for (int i = 0; i < 20; i++) {
+        lattice_cell * lc = crystal->get_cell(3, 3, i, 0);
+        for (particle * p : lc->particles) {
+            axis_offsets.add_particle(p);
+        }
+    }
 #endif
     monte_carlo.train();
-    for (int i = 0; i < 30; i++) {
+    for (int i = 0; i < 100; i++) {
         monte_carlo.sweep_sym(100);
         crystal->write(seqfn(i));
-        crystal->log(i, log_stream);
+        axis_offsets.measure();
+        axis_offsets.write(log_stream);
     }
     PRINT_VAR(crystal->potential_epsilon);
     PRINT_VAR(crystal->potential_sigma);
