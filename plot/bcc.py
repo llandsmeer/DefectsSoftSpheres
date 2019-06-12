@@ -49,17 +49,22 @@ m3[len(m)//2+1:] -= 1.5 * (3)**0.5
 m4[len(m)//2+1:] -= 1.5 * (3)**0.5
 
 cells = np.arange(len(m))
-plt.plot(cells, m, 'o')
-plt.plot(cells, m2, 'o')
-plt.plot(cells, m3, 'o')
-plt.plot(cells, m4, 'o')
+plt.plot(cells, -m4/a, 'o', color='#cccccc')
+plt.plot(cells, -m3/a, 'o', color='#999999')
+plt.plot(cells, -m2/a, 'o', color='#666666')
+plt.plot(cells, -m/a, 'o', color='black')
 
 def sg(x, s, m, d):
     return s * np.arctan(np.exp(m*x+d))
 
 (S, M, D), _cov = curve_fit(sg, cells, m, [0.5, 1, -10])
 x = np.linspace(0, len(m), 1000)
-plt.plot(x, sg(x, S, M, D), '-', color='black')
+plt.plot(x, -sg(x, S, M, D)/a, '--', color='black')
+
+plt.ylabel('$<u>/a$')
+plt.xlabel('Site')
+plt.xticks(cells)
+plt.title('BCC interstitial, mean displacement and sine-Gordon fit \n$\\rho{} \\sigma^3=2.5$, $k_BT/\\epsilon$=0.002')
 
 plt.show()
 
