@@ -45,18 +45,37 @@ class crystal {
         }
     }
 public:
+    enum potential_type { STAR, HERTZ };
+    potential_type potential_type = HERTZ;
     periodic_space space;
     std::vector<lattice_cell*> cells;
     std::vector<particle*> particles;
 
     double potential_sigma;
-    double potential_epsilon;
+    double potential_epsilon; /* or f for star */
 
     double wigner_seitz_constraint = true;
 
     double potential(double dist) const {
-        return dist >= potential_sigma ? 0 :
-            potential_epsilon*pow(1.-dist/potential_sigma, 5./2);
+        if (potential_type == HERTZ) {
+            return dist >= potential_sigma ? 0 :
+                potential_epsilon*pow(1.-dist/potential_sigma, 5./2);
+        } else if (potential_type == STAR) {
+            /* Phys. Rev. Let. V82 N26 p. 5290 eq 1
+             * kBT is also in prefactor there but if we set
+             * beta to 1 in the simulation its not needed */
+            double f = potential_epsilon;
+            double sig = potential_sigma;
+            double prefactor = 5./18 * pow(f, 3./2);
+            double _1_1psf2 = 1./(1.+sqrt(f)/2);
+            if (dist <= sig) {
+                return prefactor * (-std::log(dist/sig) + _1_1psf2);
+            } else {
+                return prefactor * (sig*_1_1psf2 * exp(-sqrt(f)*(dist-sig)/(2*sig))/dist);
+            }
+        }
+        assert (false);
+        return 0;
     }
 
     static crystal * bcc(int n1=4, int n2=-1, int n3=-1, double a=3) {

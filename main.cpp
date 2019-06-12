@@ -5,12 +5,13 @@
 // RUN time ./a.out
 // RUN # sh -c 'opengl-mol sim/opengl.*'
 
-#define NDEBUG // for a 2x speed up, disables all assert() macros
+// #define NDEBUG // for a 2x speed up, disables all assert() macros
 
 // one of these 2 options
-#define BCC_INT
-// #define HEXAGONAL_VAC
+#define HERTZ_BCC_INT
+// #define HERTZ_HEX_VAC
 
+#include <math.h>
 #include <iomanip>
 
 #define PRINT_VAR(x) std::cout << #x" => " << (x) << std::endl
@@ -20,22 +21,28 @@
 #include "axis_offsets.hpp"
 #include "bcc_offsets.hpp"
 
-#ifdef BCC_INT
+#ifdef HERTZ_BCC_INT
 crystal * crystal = crystal::bcc(7, 7, 7);
 #endif
 
-#ifdef HEXAGONAL_VAC
+#ifdef HERTZ_HEX_VAC
 crystal * crystal = crystal::hexagonal(6, 6, 20);
 axis_offsets axis_offsets(crystal, vec3(0, 0, 1));
 #endif
 
 monte_carlo monte_carlo(crystal);
 
-void configure(double kbt_eta, double rho_sigma3) {
-    double rho = crystal->density();
+void configure_hertz(double kbt_eta, double rho_sigma3) {
     crystal->potential_epsilon = 1;
-    crystal->potential_sigma = pow(rho_sigma3 / rho, 1./3);
+    crystal->potential_sigma = pow(rho_sigma3 / crystal->density(), 1./3);
     monte_carlo.beta = 1./(kbt_eta*crystal->potential_epsilon);
+}
+
+void configure_star(double packing_fraction, double one_over_f) {
+    crystal->potential_type = crystal::potential_type::STAR;
+    crystal->potential_sigma = pow(M_PI / (6. * crystal->density() * packing_fraction), 1/3.);
+    crystal->potential_epsilon = 1. / one_over_f;
+    monte_carlo.beta = 1;
 }
 
 std::string seqfn(int i) {
@@ -50,8 +57,8 @@ int main() {
 #endif
     srand(0);
     crystal->wigner_seitz_constraint = true;
-#ifdef BCC_INT
-    configure(0.002, 2.5);
+#ifdef HERTZ_BCC_INT
+    configure_hertz(0.002, 2.5);
     std::ofstream log_stream("sim/bcc_offsets");
     lattice_cell * mid = crystal->get_cell(4, 4, 4, 0);
     particle * in = mid->interstitial(vec3(0.3, 0.3, 0.3));
@@ -61,8 +68,8 @@ int main() {
     }
     bcc_offsets axis_offsets(crystal, mid);
 #endif
-#ifdef HEXAGONAL_VAC
-    configure(0.001, 4.0);
+#ifdef HERTZ_HEX_VAC
+    configure_hertz(0.001, 4.0);
     lattice_cell * mid = crystal->get_cell(3, 3, 5, 0);
     mid->vacancy();
     std::ofstream log_stream("sim/hex_offsets");
