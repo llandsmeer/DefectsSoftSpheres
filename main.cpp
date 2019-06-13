@@ -13,7 +13,8 @@
 
 // one of these 2 options
 // #define HERTZ_BCC_INT
-#define HERTZ_SC_VAC
+#define HERTZ_FCC_INT
+// #define HERTZ_SC_VAC
 // #define HERTZ_HEX_VAC
 // #define STAR_TEST
 
@@ -39,6 +40,11 @@ auto unitcell = lattice_definition::body_centered_cubic(3);
 crystal * crystal = crystal::build(unitcell, 7, 7, 7);
 #endif
 
+#ifdef HERTZ_FCC_INT
+auto unitcell = lattice_definition::face_centered_cubic(3);
+crystal * crystal = crystal::build(unitcell, 8);
+#endif
+
 #ifdef HERTZ_HEX_VAC
 auto unitcell = lattice_definition::hexagonal(3, 0.84);
 crystal * crystal = crystal::build(unitcell, 6, 6, 20);
@@ -46,9 +52,10 @@ axis_offsets axis_offsets(crystal, vec3(0, 0, 1));
 #endif
 
 #ifdef STAR_TEST
+auto unitcell_bcc = lattice_definition::body_centered_cubic(3);
 auto unitcell_bco = lattice_definition::body_centered_orthorhombic(1, 3.14, 1.81);
 auto unitcell_diam = lattice_definition::diamond(5);
-crystal * crystal = crystal::build(unitcell_bco, 4, 4, 4, 10);
+crystal * crystal = crystal::build(unitcell_bcc, 4, 4, 4, 10);
 #endif
 
 monte_carlo monte_carlo(crystal);
@@ -104,6 +111,18 @@ int main(int argc, char ** argv) {
 #ifdef HERTZ_BCC_INT
     configure_hertz(0.002, 2.5);
     std::ofstream log_stream(path_join(root, "bcc_offsets"));
+    lattice_cell * mid = crystal->get_cell(4, 4, 4, 0);
+    particle * in = mid->interstitial(vec3(0.3, 0.3, 0.3));
+    if (crystal->wigner_seitz_constraint) {
+        mid->particles[0]->color = 2;
+        in->color = 2;
+    }
+    bcc_offsets axis_offsets(crystal, mid);
+#endif
+#ifdef HERTZ_FCC_INT
+    crystal->wigner_seitz_constraint = true;
+    configure_hertz(0.002, 1.8);
+    std::ofstream log_stream(path_join(root, "fcc_offsets"));
     lattice_cell * mid = crystal->get_cell(4, 4, 4, 0);
     particle * in = mid->interstitial(vec3(0.3, 0.3, 0.3));
     if (crystal->wigner_seitz_constraint) {
