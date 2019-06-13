@@ -73,7 +73,7 @@ public:
             if (dist <= sig) {
                 return prefactor * (-std::log(dist/sig) + _1_1psf2);
             } else {
-                return prefactor * ((sig/dist)*_1_1psf2 * exp(-sqrt(f)/(2*sig)*(dist-sig));
+                return prefactor * (sig/dist)*_1_1psf2 * exp(-sqrt(f)/(2*sig)*(dist-sig));
             }
         }
         assert (false);
