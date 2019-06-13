@@ -73,7 +73,7 @@ public:
     static lattice_definition face_centered_cubic(double a=1) {
         lattice_definition lattice = simple_cubic(a);
         lattice.basis_vectors.push_back(vec3(0.5, 0.5, 0.0));
-        lattice.basis_vectors.push_back(vec3(0.0, 0.5, 0.0));
+        lattice.basis_vectors.push_back(vec3(0.0, 0.5, 0.5));
         lattice.basis_vectors.push_back(vec3(0.5, 0.0, 0.5));
         return lattice;
     }
