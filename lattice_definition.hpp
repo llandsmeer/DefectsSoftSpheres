@@ -107,6 +107,32 @@ public:
         lattice.basis_vectors.push_back(vec3());
         return lattice;
     }
+
+    static lattice_definition body_centered_orthorhombic(double a, double b_over_a, double c_over_a) {
+        lattice_definition lattice;
+        lattice.a = a;
+        lattice.b = a * b_over_a;
+        lattice.c = a * c_over_a;
+        lattice.alpha = M_PI / 2;
+        lattice.beta = M_PI / 2;
+        lattice.gamma = M_PI / 2;
+        lattice.basis_vectors.push_back(vec3());
+        lattice.basis_vectors.push_back(vec3(0.5, 0.5, 0.5));
+        return lattice;
+    }
+
+    static lattice_definition diamond(double a) {
+        /* https://en.wikipedia.org/wiki/Diamond_cubic#Mathematical_structure */
+        lattice_definition lattice = simple_cubic(a);
+        lattice.basis_vectors.push_back(vec3(0, 2, 2)/4);
+        lattice.basis_vectors.push_back(vec3(2, 0, 2)/4);
+        lattice.basis_vectors.push_back(vec3(2, 2, 0)/4);
+        lattice.basis_vectors.push_back(vec3(3, 3, 3)/4);
+        lattice.basis_vectors.push_back(vec3(3, 1, 1)/4);
+        lattice.basis_vectors.push_back(vec3(1, 3, 1)/4);
+        lattice.basis_vectors.push_back(vec3(1, 1, 3)/4);
+        return lattice;
+    }
 };
 
 #endif

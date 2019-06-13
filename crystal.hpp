@@ -78,23 +78,13 @@ public:
         return 0;
     }
 
-    static crystal * bcc(int n1=4, int n2=-1, int n3=-1, double a=3) {
+    static crystal * build(lattice_definition & unitcell, int n1=4, int n2=-1, int n3=-1, double cutoff=2) {
         if (n2 == -1) n2 = n1;
         if (n3 == -1) n3 = n2;
-        auto unitcell = lattice_definition::body_centered_cubic(a);
+        double a = unitcell.a;
         crystal * ret = new crystal(periodic_space(
             matrix3::from_cols(unitcell.p1(), unitcell.p2(), unitcell.p3()), vec3(n1, n2, n3)));
-        ret->init(n1, n2, n3, a, unitcell, a*2); // 1.1
-        return ret;
-    }
-
-    static crystal * hexagonal(int n1=4, int n2=-1, int n3=-1, double a=3) {
-        if (n2 == -1) n2 = n1;
-        if (n3 == -1) n3 = n2;
-        auto unitcell = lattice_definition::hexagonal(a, 0.84);
-        crystal * ret = new crystal(periodic_space(
-            matrix3::from_cols(unitcell.p1(), unitcell.p2(), unitcell.p3()), vec3(n1, n2, n3)));
-        ret->init(n1, n2, n3, a, unitcell, a*2);
+        ret->init(n1, n2, n3, a, unitcell, a*cutoff);
         return ret;
     }
 
@@ -161,14 +151,14 @@ public:
             return energy_all;
 #endif
         }
-        if (!(abs(energy_ws - energy_all) < 1e-3)) {
+        if (both && !(abs(energy_ws - energy_all) < 1e-3)) {
             std::cout << "two_particle_energy() mismatch\n";
             PRINT_VAR(p1->cell->nb);
             PRINT_VAR(p2->cell->nb);
             PRINT_VAR(energy_ws);
             PRINT_VAR(energy_all);
         }
-        assert(abs(energy_ws - energy_all) < 1e-3);
+        assert(!both || abs(energy_ws - energy_all) < 1e-3);
         return energy_all;
     }
 
@@ -306,7 +296,7 @@ double particle::energy(vec3 shift) {
         return energy_all;
 #endif
     }
-    assert(energy_ws == energy_all);
+    assert(!both || energy_ws == energy_all);
     return energy_all;
 }
 

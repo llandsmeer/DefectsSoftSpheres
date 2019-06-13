@@ -1,16 +1,22 @@
-// RUN set -ex
-// RUN g++ main.cpp -g -O3 -Wall
-// RUN rm -fr sim
-// RUN mkdir sim
-// RUN time ./a.out
-// RUN # sh -c 'opengl-mol sim/opengl.*'
+// RUN set -e
+// RUN echo ===== "$1" =====
+// RUN if [ "$1" = test ]; then
+// RUN     rm -fr sim/test
+// RUN fi
+// RUN mkdir sim/"$1"
+// RUN cp main.cpp sim/"$1"/main.cpp
+// RUN g++ main.cpp -g -O3 -Wall -std=c++17 -o sim/"$1"/main -lpthread
+// RUN time sim/"$1"/main "$1"
+// RUN sh -c "opengl-mol sim/$1/"'opengl.*'
 
-// #define NDEBUG // for a 2x speed up, disables all assert() macros
+#define NDEBUG // for a 2x speed up, disables all assert() macros
 
 // one of these 2 options
 #define HERTZ_BCC_INT
 // #define HERTZ_HEX_VAC
+// #define STAR_TEST
 
+#include <thread>
 #include <math.h>
 #include <iomanip>
 
@@ -22,12 +28,20 @@
 #include "bcc_offsets.hpp"
 
 #ifdef HERTZ_BCC_INT
-crystal * crystal = crystal::bcc(7, 7, 7);
+auto unitcell = lattice_definition::body_centered_cubic(3);
+crystal * crystal = crystal::build(unitcell, 7, 7, 7);
 #endif
 
 #ifdef HERTZ_HEX_VAC
-crystal * crystal = crystal::hexagonal(6, 6, 20);
+auto unitcell = lattice_definition::hexagonal(3, 0.84);
+crystal * crystal = crystal::build(unitcell, 6, 6, 20);
 axis_offsets axis_offsets(crystal, vec3(0, 0, 1));
+#endif
+
+#ifdef STAR_TEST
+auto unitcell_bco = lattice_definition::body_centered_orthorhombic(1, 3.14, 1.81);
+auto unitcell_diam = lattice_definition::diamond(5);
+crystal * crystal = crystal::build(unitcell_bco, 4, 4, 4, 10);
 #endif
 
 monte_carlo monte_carlo(crystal);
@@ -47,11 +61,27 @@ void configure_star(double packing_fraction, double one_over_f) {
 
 std::string seqfn(int i) {
     std::ostringstream s;
-    s << "sim/opengl." << std::setfill('0') << std::setw(4) << i;
+    s << "opengl." << std::setfill('0') << std::setw(4) << i;
     return s.str();
 }
 
-int main() {
+template<typename Str>
+std::string path_join(Str a) {
+    std::ostringstream s; s << a; return s.str(); }
+template<typename StrHead, typename... StrTail>
+std::string path_join(StrHead head, StrTail... tail) {
+     std::ostringstream s; s << head << "/" << path_join(tail...); return s.str(); }
+
+int main(int argc, char ** argv) {
+    volatile int progress = 0;
+    std::thread([&]() { for(;;) { std::this_thread::sleep_for(std::chrono::seconds(2));
+        std::cerr << progress << " " << std::flush;
+    }}).detach();
+    if (argc != 2) {
+        std::cerr << "usage: sh c [output directory in sim/]" << std::endl;
+        exit(1);
+    }
+    std::string root = path_join("sim", argv[1]);
 #ifdef NDEBUG
     std::cout << "WARNING NDEBUG IS DEFINED\n";
 #endif
@@ -59,7 +89,7 @@ int main() {
     crystal->wigner_seitz_constraint = true;
 #ifdef HERTZ_BCC_INT
     configure_hertz(0.002, 2.5);
-    std::ofstream log_stream("sim/bcc_offsets");
+    std::ofstream log_stream(path_join(root, "bcc_offsets"));
     lattice_cell * mid = crystal->get_cell(4, 4, 4, 0);
     particle * in = mid->interstitial(vec3(0.3, 0.3, 0.3));
     if (crystal->wigner_seitz_constraint) {
@@ -72,7 +102,7 @@ int main() {
     configure_hertz(0.001, 4.0);
     lattice_cell * mid = crystal->get_cell(3, 3, 5, 0);
     mid->vacancy();
-    std::ofstream log_stream("sim/hex_offsets");
+    std::ofstream log_stream(path_join(root, "hex_offsets"));
     for (int i = 0; i < 20; i++) {
         lattice_cell * lc = crystal->get_cell(3, 3, i, 0);
         for (particle * p : lc->particles) {
@@ -80,15 +110,22 @@ int main() {
         }
     }
 #endif
+#ifdef STAR_TEST
+    configure_star(1.25, 0.01);
+    crystal->wigner_seitz_constraint = false;
+    lattice_cell * mid = crystal->get_cell(0, 0, 0, 0);
+    bcc_offsets axis_offsets(crystal, mid);
+    std::ofstream log_stream(path_join(root, "bcc_offsets"));
+#endif
+    PRINT_VAR(crystal->particles.size());
+    crystal->write(path_join(root, seqfn(0)));
     monte_carlo.train();
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 10; i++) {
         monte_carlo.sweep_sym(100);
-        crystal->write(seqfn(i));
+        crystal->write(path_join(root, seqfn(i+1)));
         axis_offsets.measure();
         axis_offsets.write(log_stream);
+        progress = i;
     }
-    PRINT_VAR(crystal->potential_epsilon);
-    PRINT_VAR(crystal->potential_sigma);
-    PRINT_VAR(monte_carlo.beta);
     log_stream.close();
 }
