@@ -57,6 +57,8 @@ public:
     double wigner_seitz_constraint = true;
 
     double potential(double dist) const {
+        assert(dist != 0);
+        assert(dist >= 0);
         if (potential_type == HERTZ) {
             return dist >= potential_sigma ? 0 :
                 potential_epsilon*pow(1.-dist/potential_sigma, 5./2);
@@ -71,7 +73,7 @@ public:
             if (dist <= sig) {
                 return prefactor * (-std::log(dist/sig) + _1_1psf2);
             } else {
-                return prefactor * (sig*_1_1psf2 * exp(-sqrt(f)*(dist-sig)/(2*sig))/dist);
+                return prefactor * ((sig/dist)*_1_1psf2 * exp(-sqrt(f)/(2*sig)*(dist-sig));
             }
         }
         assert (false);
