@@ -12,7 +12,8 @@
 #define NDEBUG // for a 2x speed up, disables all assert() macros
 
 // one of these 2 options
-#define HERTZ_BCC_INT
+// #define HERTZ_BCC_INT
+#define HERTZ_SC_VAC
 // #define HERTZ_HEX_VAC
 // #define STAR_TEST
 
@@ -26,6 +27,12 @@
 #include "monte_carlo.hpp"
 #include "axis_offsets.hpp"
 #include "bcc_offsets.hpp"
+#include "sc_offsets.hpp"
+
+#ifdef HERTZ_SC_VAC
+auto unitcell = lattice_definition::simple_cubic(3);
+crystal * crystal = crystal::build(unitcell, 10);
+#endif
 
 #ifdef HERTZ_BCC_INT
 auto unitcell = lattice_definition::body_centered_cubic(3);
@@ -87,6 +94,13 @@ int main(int argc, char ** argv) {
 #endif
     srand(0);
     crystal->wigner_seitz_constraint = true;
+#ifdef HERTZ_SC_VAC
+    configure_hertz(0.001, 5.2);
+    std::ofstream log_stream(path_join(root, "sc_offsets"));
+    lattice_cell * mid = crystal->get_cell(5, 5, 5, 0);
+    mid->vacancy();
+    sc_offsets axis_offsets(crystal, mid);
+#endif
 #ifdef HERTZ_BCC_INT
     configure_hertz(0.002, 2.5);
     std::ofstream log_stream(path_join(root, "bcc_offsets"));
@@ -120,7 +134,7 @@ int main(int argc, char ** argv) {
     PRINT_VAR(crystal->particles.size());
     crystal->write(path_join(root, seqfn(0)));
     monte_carlo.train();
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < 100; i++) {
         monte_carlo.sweep_sym(100);
         crystal->write(path_join(root, seqfn(i+1)));
         axis_offsets.measure();
